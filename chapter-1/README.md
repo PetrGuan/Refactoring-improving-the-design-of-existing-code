@@ -103,4 +103,75 @@ You earned 47 credits
 
 ## THE FIRST STEP IN REFACTORING
 
-第一步的重要性可能没有那么明显，但它很重要，那就是准备你的 test，用来保证你的重构没有破坏原有程序的正确性。由于程序输出的是 string，那么就应该构造一系列测试的输入和对应的 string 输出，
+第一步的重要性可能没有那么明显，但它很重要，那就是准备你的 test，用来保证你的重构没有破坏原有程序的正确性。由于程序输出的是 string，那么就应该构造一系列测试的输入和对应的 string 输出。
+
+> Before you start refactoring, make sure you have a solid suite of tests. These tests must be self-checking.
+
+## DECOMPOSING THE *STATEMENT* FUNCTION
+
+首先来看这一段 switch 语句：
+
+```javascript
+switch (play.type) {
+    case "tragedy":
+      thisAmount = 40000;
+      if (perf.audience > 30) {
+        thisAmount += 1000 * (perf.audience - 30);
+      }
+      break;
+    case "comedy":
+      thisAmount = 30000;
+      if (perf.audience > 20) {
+        thisAmount += 10000 + 500 * (perf.audience - 20);
+      }
+      thisAmount += 300 * perf.audience;
+      break;
+    default:
+        throw new Error(`unknown type: ${play.type}`);
+    }
+```
+
+很明显，这段代码在计算每个演出的费用，好的代码应该是不言自明的，我不用仔细看就知道它在做什么，于是很自然的我们应该把这一段代码放在一个函数里，并以它的作用来命名，比如 "amountFor(aPerformance)"。这被称为 "**Extract Function (106)**"。
+
+首先，我需要先查看这段代码里的变量，确定如果函数化后哪些会脱离作用域，在这个例子里是："**perf, play, thisAmount**"  这三个变量，前两个只是使用了它们的值而没有改变，所以我可以直接当作函数变量传进去，“**thisAmount**"” 变量改变了，由于只有这一个变量改变了自身，所以我们可以当作函数返回值来返回。具体如下：
+
+```javascript
+function amountFor(perf, play) {
+  let thisAmount = 0;
+  switch (play.type) {
+  case "tragedy":
+    thisAmount = 40000;
+    if (perf.audience > 30) {
+      thisAmount += 1000 * (perf.audience - 30);
+    }
+    break;
+  case "comedy":
+    thisAmount = 30000;
+    if (perf.audience > 20) {
+      thisAmount += 10000 + 500 * (perf.audience - 20);
+    }
+    thisAmount += 300 * perf.audience;
+    break;
+  default:
+      throw new Error(`unknown type: ${play.type}`);
+  }
+  return thisAmount;
+}
+```
+
+这下原有的函数可以重构为：
+
+```javascript
+function statement (invoice, plays) {
+  ...
+  for (let perf of invoice.performances) {
+    ...
+    let thisAmount = amountFor(perf, play);
+    ...
+  }
+  ...
+```
+
+记住这点，每次在你重构以后，立即进行编译和测试，因为这会大大降低你 debug 的难度，这就是重构的核心思想：small changes and testing after each change。
+
+> Refactoring changes the programs in small steps, so if you make a mistake, it is easy to find where the bug is.
