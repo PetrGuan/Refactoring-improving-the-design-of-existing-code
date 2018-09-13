@@ -175,3 +175,169 @@ function statement (invoice, plays) {
 记住这点，每次在你重构以后，立即进行编译和测试，因为这会大大降低你 debug 的难度，这就是重构的核心思想：small changes and testing after each change。
 
 > Refactoring changes the programs in small steps, so if you make a mistake, it is easy to find where the bug is.
+
+让我们回过头来再看一下提取出来的代码，首先我们可以查看是否有变量需要重命名：
+
+```javascript
+function amountFor(perf, play) {
+  let result = 0;
+  switch (play.type) {
+  case "tragedy":
+    result = 40000;
+    if (perf.audience > 30) {
+      result += 1000 * (perf.audience - 30);
+    }
+    break;
+  case "comedy":
+    result = 30000;
+    if (perf.audience > 20) {
+      result += 10000 + 500 * (perf.audience - 20);
+    }
+    result += 300 * perf.audience;
+    break;
+  default:
+      throw new Error(`unknown type: ${play.type}`);
+  }
+  return result;
+}
+```
+
+这里我们把 **thisAmount** 改为了 **result**，接着我们把 **perf** 改为 **aPerformance**：
+
+```javascript
+function amountFor(aPerformance, play) {
+  let result = 0;
+  switch (play.type) {
+  case "tragedy":
+    result = 40000;
+    if (aPerformance.audience > 30) {
+      result += 1000 * (aPerformance.audience - 30);
+    }
+    break;
+  case "comedy":
+    result = 30000;
+    if (aPerformance.audience > 20) {
+      result += 10000 + 500 * (aPerformance.audience - 20);
+    }
+    result += 300 * aPerformance.audience;
+    break;
+  default:
+      throw new Error(`unknown type: ${play.type}`);
+  }
+  return result;
+}
+```
+
+这里由于 javascript 是动态类型的语言，把变量的类型也嵌入命名中是一个比较好的做法。
+
+> Any fool can write code that a computer can understand. Good programmers write code that humans can understand.
+
+## Removing the play Variable
+
+仔细观察可以发现，play 变量是由 performance 变量计算而来，所以没有必要把 play 当作变量来传递，我们可以直接在 amountFor 函数里把它计算出来。当分解比较长的函数的时候，像 play 这样的变量应该尽量删除，这是因为临时变量会产生很多临时的作用域名称，这往往会令人困扰，这样的重构技巧被称作为 "Replace Temp with Query"。我们把这个过程作为一个函数：
+
+```javascript
+function playFor(aPerformance) {
+  return plays[aPerformance.playID];
+}
+```
+
+整个函数现在变为：
+
+```javascript
+function statement (invoice, plays) {
+  ...
+  for (let perf of invoice.performances) {
+    const play = playFor(perf);
+  ...
+  return result;
+```
+
+接着我们使用 “**Inline Variable**”：
+
+```javascript
+function statement (invoice, plays) {
+  ...
+  for (let perf of invoice.performances) {
+    // 删除下面这句
+    // const play = playFor(perf);
+    let thisAmount = amountFor(perf, playFor(perf));
+
+    ...
+    if ("comedy" === playFor(perf).type) volumeCredits += Math.floor(perf.audience / 5);
+
+    //print line for this order
+    result += `  ${playFor(perf).name}: ${format(thisAmount/100)} (${perf.audience} seats)\n`;
+    totalAmount += thisAmount;
+  }
+  ...
+  return result;
+```
+
+有了这个 “**inline**”，我们可以继续下一个重构操作，“**Change Function Declaration**”，来移除 “**play**” 变量：
+
+```javascript
+function amountFor(aPerformance) {
+  let result = 0;
+  switch (playFor(aPerformance).type) {
+  case "tragedy":
+    result = 40000;
+    if (aPerformance.audience > 30) {
+      result += 1000 * (aPerformance.audience - 30);
+    }
+    break;
+  case "comedy":
+    result = 30000;
+    if (aPerformance.audience > 20) {
+      result += 10000 + 500 * (aPerformance.audience - 20);
+    }
+    result += 300 * aPerformance.audience;
+    break;
+  default:
+      throw new Error(`unknown type: ${playFor(aPerformance).type}`);
+  }
+  return result;
+}
+
+function statement (invoice, plays) {
+  let totalAmount = 0;
+  let volumeCredits = 0;
+  let result = `Statement for ${invoice.customer}\n`;
+  const format = new Intl.NumberFormat("en-US",
+                        { style: "currency", currency: "USD",
+                          minimumFractionDigits: 2 }).format;
+  for (let perf of invoice.performances) {
+    let thisAmount = amountFor(perf, playFor(perf));
+
+    // add volume credits
+    volumeCredits += Math.max(perf.audience - 30, 0);
+    // add extra credit for every ten comedy attendees
+    if ("comedy" === playFor(perf).type) volumeCredits += Math.floor(perf.audience / 5);
+
+    //print line for this order
+    result += `  ${playFor(perf).name}: ${format(thisAmount/100)} (${perf.audience} seats)\n`;
+    totalAmount += thisAmount;
+  }
+  result += `Amount owed is ${format(totalAmount/100)}\n`;
+  result += `You earned ${volumeCredits} credits\n`;
+  return result;
+```
+
+有些程序员会很惊讶，因为之前的代码 "**playFor()**" 在每个循环里只执行一次，而现在要执行三次。在这里我们明白这不会显著影响程序的执行效率，但即使如此我们也要在心中有意识程序的效率。
+
+下来我们看 "**playFor()**" 被调用的地方，很明显我们可以移除 `let thisAmount = amountFor(perf, playFor(perf));`
+
+```javascript
+function statement (invoice, plays) {
+  ...
+  for (let perf of invoice.performances) {
+    // 删除下一句
+    // let thisAmount = amountFor(perf, playFor(perf));
+    ...
+    //print line for this order
+    result += `  ${playFor(perf).name}: ${format(amountFor(perf)/100)} (${perf.audience} seats)\n`;
+    totalAmount += amountFor(perf);
+  }
+  ...
+  return result;
+```
