@@ -341,3 +341,89 @@ function statement (invoice, plays) {
   ...
   return result;
 ```
+
+## Extracting Volume Credits
+
+我们可以把 **volumeCredits** 提取出来，作为一个函数：
+
+```javascript
+function volumeCreditsFor(perf) {
+  let result = 0;
+  result += Math.max(aPerformance.audience - 30, 0);
+  if ("comedy" === playFor(aPerformance).type) result += Math.floor(aPerformance.audience / 5);
+  return result;
+}
+```
+
+这时我们的 **statement** 函数可以重构为：
+
+```javascript
+function statement (invoice, plays) {
+  ...
+  for (let perf of invoice.performances) {
+    volumeCredits += volumeCreditsFor(perf);
+    ...
+  }
+  ...
+```
+
+## Removing the format Variable
+
+临时的变量可能会成为问题，因为它们只在各自的作用域内有效，所以往往会使得作用域变得很长很复杂。所以我们的下一步可以把 **format** 变量用函数来替代。
+
+```javascript
+function format(aNumber) {
+  return new Intl.NumberFormat("en-US",
+                      { style: "currency", currency: "USD",
+                        minimumFractionDigits: 2 }).format(aNumber);}
+```
+
+我们的函数可以重构为：
+
+```javascript
+function statement (invoice, plays) {
+  let totalAmount = 0;
+  let volumeCredits = 0;
+  let result = `Statement for ${invoice.customer}\n`;
+  for (let perf of invoice.performances) {
+    volumeCredits += volumeCreditsFor(perf);
+
+    //print line for this order
+    result += `  ${playFor(perf).name}: ${format(amountFor(perf)/100)} (${perf.audience} seats)\n`;
+    totalAmount += amountFor(perf);
+
+  }
+  result += `Amount owed is ${format(totalAmount/100)}\n`;
+  result += `You earned ${volumeCredits} credits\n`;
+  return result;
+```
+
+这里要注意的是函数的名字，你可以发现单纯看 **format** 函数名字，你无法了解它在 **format** 什么，所以更好的做法是使用 “**Change Function Declaration**”。
+
+```javascript
+function usd(aNumber) {
+  return new Intl.NumberFormat("en-US",
+                      { style: "currency", currency: "USD",
+                        minimumFractionDigits: 2 }).format(aNumber/100);
+}
+
+function statement (invoice, plays) {
+  let totalAmount = 0;
+  let volumeCredits = 0;
+  let result = `Statement for ${invoice.customer}\n`;
+  for (let perf of invoice.performances) {
+    volumeCredits += volumeCreditsFor(perf);
+
+    //print line for this order
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+    totalAmount += amountFor(perf);
+
+  }
+  result += `Amount owed is ${usd(totalAmount)}\n`;
+  result += `You earned ${volumeCredits} credits\n`;
+  return result;
+```
+
+## Removing Total Volume Credits
+
+我们下一个重构的对象是 **volumeCredits**。我们的一个动作就是，使用 “**Split Loop**” 来分隔开 **volumeCredits**。
