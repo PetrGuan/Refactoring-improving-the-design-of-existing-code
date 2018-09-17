@@ -493,7 +493,7 @@ function statement (invoice, plays) {
 
 同样的技巧，把 “**totalAmount**” 提取成函数：
 
-```python
+```javascript
 function totalAmount() {
   let result = 0;
   for (let perf of invoice.performances) {
