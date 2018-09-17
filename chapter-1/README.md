@@ -480,3 +480,102 @@ function statement (invoice, plays) {
   result += `You earned ${totalVolumeCredits()} credits\n`;
   return result;
 ```
+
+这里我们的一个理念是这样的，虽然有时候重构会造成程序的效率问题，但是大多数情况下几乎是可以忽略不计的，如果真的严重影响了效率，那么我们通常的做法是先重构，再去对重构完的代码提升效率，因为重构完的代码清晰可读，往往会更容易让你提升效率。以下是用到的重构技巧：
+
+> * **Image Split Loop** (226) to isolate the accumulation
+
+> * **Image Slide Statements** (221) to bring the initializing code next to the accumulation
+
+> * **Image Extract Function** (106) to create a function for calculating the total
+
+> * **Image Inline Variable** (123) to remove the variable completely
+
+同样的技巧，把 “**totalAmount**” 提取成函数：
+
+```python
+function totalAmount() {
+  let result = 0;
+  for (let perf of invoice.performances) {
+    result += amountFor(perf);
+  }
+  return result;
+}
+
+function statement (invoice, plays) {
+  let result = `Statement for ${invoice.customer}\n`;
+  for (let perf of invoice.performances) {
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+  }
+  result += `Amount owed is ${usd(totalAmount())}\n`;
+  result += `You earned ${totalVolumeCredits()} credits\n`;
+  return result;
+```
+
+## STATUS: LOTS OF NESTED FUNCTIONS
+
+现在我们来回顾一下我们重构的结果：
+
+```javascript
+  function statement (invoice, plays) {
+    let result = `Statement for ${invoice.customer}\n`;
+    for (let perf of invoice.performances) {
+      result += `  ${playFor(perf).name}: ${usd(amountFor(perf))}    (${perf.audience} seats)\n`;
+   }
+    result += `Amount owed is ${usd(totalAmount())}\n`;
+    result += `You earned ${totalVolumeCredits()} credits\n`;
+    return result;
+
+  function totalAmount() {
+    let result = 0;
+    for (let perf of invoice.performances) {
+      result += amountFor(perf);
+    }
+    return result;
+  }
+  function totalVolumeCredits() {
+    let result = 0;
+    for (let perf of invoice.performances) {
+      result += volumeCreditsFor(perf);
+    }
+    return result;
+  }
+  function usd(aNumber) {
+    return new Intl.NumberFormat("en-US",
+                        { style: "currency", currency: "USD",
+                          minimumFractionDigits: 2 }).format(aNumber/100);
+  }
+  function volumeCreditsFor(aPerformance) {
+    let result = 0;
+    result += Math.max(aPerformance.audience - 30, 0);
+    if ("comedy" === playFor(aPerformance).type) result += Math.floor(aPerformance.audience / 5);
+    return result;
+  }
+  function playFor(aPerformance) {
+    return plays[aPerformance.playID];
+  }
+  function amountFor(aPerformance) {
+    let result = 0;
+    switch (playFor(aPerformance).type) {
+    case "tragedy":
+      result = 40000;
+      if (aPerformance.audience > 30) {
+        result += 1000 * (aPerformance.audience - 30);
+      }
+      break;
+    case "comedy":
+      result = 30000;
+      if (aPerformance.audience > 20) {
+        result += 10000 + 500 * (aPerformance.audience - 20);
+      }
+      result += 300 * aPerformance.audience;
+      break;
+    default:
+        throw new Error(`unknown type: ${playFor(aPerformance).type}`);
+    }
+    return result;
+  }
+}
+```
+
+现在代码整体的结构比之前好了很多。起初的 top-level “**statement**” 函数现在只有 **7** 行，并且每行都在进行 print 相关操作，所有具体的计算逻辑已经被移到了其他的函数中，这样使得你只要专注于一个个琐碎的函数，一切都变得更简单以及容易理解。
