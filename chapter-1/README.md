@@ -426,4 +426,57 @@ function statement (invoice, plays) {
 
 ## Removing Total Volume Credits
 
-我们下一个重构的对象是 **volumeCredits**。我们的一个动作就是，使用 “**Split Loop**” 来分隔开 **volumeCredits**。
+我们下一个重构的对象是 **volumeCredits**。我们的一个动作就是，使用 “**Split Loop**” 来分隔开 **volumeCredits**,以及 “**Slide Statements**”。
+
+```javascript
+function statement (invoice, plays) {
+  let totalAmount = 0;
+
+  let result = `Statement for ${invoice.customer}\n`;
+
+  for (let perf of invoice.performances) {
+
+    //print line for this order
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+    totalAmount += amountFor(perf);
+
+  }
+  let volumeCredits = 0;
+  for (let perf of invoice.performances) {
+    volumeCredits += volumeCreditsFor(perf);
+  }
+
+  result += `Amount owed is ${usd(totalAmount)}\n`;
+  result += `You earned ${volumeCredits} credits\n`;
+  return result;
+```
+
+之后再把对 **volumeCredits** 的计算提取到一个函数里：
+
+```javascript
+function totalVolumeCredits() {
+  let result = 0;
+  for (let perf of invoice.performances) {
+    result += volumeCreditsFor(perf);
+  }
+  return result;
+}
+```
+
+这时候函数的调用就可以重构为：
+
+```javascript
+function statement (invoice, plays) {
+  let totalAmount = 0;
+  let result = `Statement for ${invoice.customer}\n`;
+  for (let perf of invoice.performances) {
+
+    //print line for this order
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+    totalAmount += amountFor(perf);
+  }
+
+  result += `Amount owed is ${usd(totalAmount)}\n`;
+  result += `You earned ${totalVolumeCredits()} credits\n`;
+  return result;
+```
