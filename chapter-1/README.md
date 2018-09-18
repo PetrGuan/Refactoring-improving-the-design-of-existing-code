@@ -558,7 +558,7 @@ function statement (invoice, plays) {
   function playFor(aPerformance) {
     return plays[aPerformance.playID];
   }
-  
+
   function amountFor(aPerformance) {
     let result = 0;
     switch (playFor(aPerformance).type) {
@@ -584,3 +584,103 @@ function statement (invoice, plays) {
 ```
 
 现在代码整体的结构比之前好了很多。起初的 top-level “**statement**” 函数现在只有 **7** 行，并且每行都在进行 print 相关操作，所有具体的计算逻辑已经被移到了其他的函数中，这样使得你只要专注于一个个琐碎的函数，一切都变得更简单以及容易理解。
+
+
+## SPLITTING THE PHASES OF CALCULATION AND FORMATTING
+
+目前为止，我们的重构侧重于给函数更为合理的结构，以便于理解程序逻辑。一般而言早期的重构都侧重于此，把复杂的代码块分解，并且更好地重命名。之后我们可以专注于功能性方面的变化，为 “**statement**” 提供 **HTML** 的版本。在进行了之前的重构之后，事情会变得更简单，由于计算相关的代码都分散开来了，我们只需要实现顶端 **7** 行代码的 **HTML** 版本即可。
+
+我们使用的重构技巧叫做 “**Split Phase (154)**”，目的是把逻辑分割成两个部分：第一部分负责计算 statement 需要的数据，第二部分负责把文本渲染成 HTML。
+
+首先使用 “**Extract Function (106)**”：
+
+```javascript
+function statement (invoice, plays) {
+  return renderPlainText(invoice, plays);
+}
+
+
+function renderPlainText(invoice, plays) {
+  let result = `Statement for ${invoice.customer}\n`;
+  for (let perf of invoice.performances) {
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+  }
+  result += `Amount owed is ${usd(totalAmount())}\n`;
+  result += `You earned ${totalVolumeCredits()} credits\n`;
+  return result;
+}
+
+  function totalAmount() {…}
+  function totalVolumeCredits() {…}
+  function usd(aNumber) {…}
+  function volumeCreditsFor(aPerformance) {…}
+  function playFor(aPerformance) {…}
+  function amountFor(aPerformance) {…}
+```
+
+和以往一样进行 compile-test-commit，然后创建一个对象作为中间数据结构，把这个对象作为变量传给 “**renderPlainText**”：
+
+```javascript
+function statement (invoice, plays) {
+  const statementData = {};
+  return renderPlainText(statementData, invoice, plays);
+}
+
+function renderPlainText(data, invoice, plays) {
+  let result = `Statement for ${invoice.customer}\n`;
+  for (let perf of invoice.performances) {
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+  }
+  result += `Amount owed is ${usd(totalAmount())}\n`;
+  result += `You earned ${totalVolumeCredits()} credits\n`;
+  return result;
+}
+
+  function totalAmount() {…}
+  function totalVolumeCredits() {…}
+  function usd(aNumber) {…}
+  function volumeCreditsFor(aPerformance) {…}
+  function playFor(aPerformance) {…}
+  function amountFor(aPerformance) {…}
+```
+
+之后我们检查 “**renderPlainText**” 用到的其他变量，最后想要达到的目的是 renderPlainText 只负责对传入的数据进行渲染。第一步是把 customer 加入中间变量：
+
+```javascript
+function statement (invoice, plays) {
+  const statementData = {};
+  statementData.customer = invoice.customer;
+  return renderPlainText(statementData, invoice, plays);
+}
+
+function renderPlainText(data, invoice, plays) {
+  let result = `Statement for ${data.customer}\n`;
+  for (let perf of invoice.performances) {
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+  }
+  result += `Amount owed is ${usd(totalAmount())}\n`;
+  result += `You earned ${totalVolumeCredits()} credits\n`;
+  return result;
+}
+```
+
+同样的，把 performances 也加入到中间变量，之后我就可以把 invoice 变量给删除了。
+
+```javascript
+function statement (invoice, plays) {
+  const statementData = {};
+  statementData.customer = invoice.customer;
+  statementData.performances = invoice.performances;
+  return renderPlainText(statementData, plays);
+}
+
+function renderPlainText(data, plays) {
+  let result = `Statement for ${data.customer}\n`;
+  for (let perf of data.performances) {
+    result += `  ${playFor(perf).name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+  }
+  result += `Amount owed is ${usd(totalAmount())}\n`;
+  result += `You earned ${totalVolumeCredits()} credits\n`;
+  return result;
+}
+```
