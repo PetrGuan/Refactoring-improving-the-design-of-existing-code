@@ -483,13 +483,13 @@ function statement (invoice, plays) {
 
 这里我们的一个理念是这样的，虽然有时候重构会造成程序的效率问题，但是大多数情况下几乎是可以忽略不计的，如果真的严重影响了效率，那么我们通常的做法是先重构，再去对重构完的代码提升效率，因为重构完的代码清晰可读，往往会更容易让你提升效率。以下是用到的重构技巧：
 
-> * **Image Split Loop** (226) to isolate the accumulation
+> * **Split Loop** (226) to isolate the accumulation
 
-> * **Image Slide Statements** (221) to bring the initializing code next to the accumulation
+> * **Slide Statements** (221) to bring the initializing code next to the accumulation
 
-> * **Image Extract Function** (106) to create a function for calculating the total
+> * **Extract Function** (106) to create a function for calculating the total
 
-> * **Image Inline Variable** (123) to remove the variable completely
+> * **Inline Variable** (123) to remove the variable completely
 
 同样的技巧，把 “**totalAmount**” 提取成函数：
 
