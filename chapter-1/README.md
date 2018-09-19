@@ -684,3 +684,112 @@ function renderPlainText(data, plays) {
   return result;
 }
 ```
+
+下来我想要让 play name 来自于中间数据，这么做我需要 play 的数据来 enrich the performance record。
+
+```javascript
+function statement (invoice, plays) {
+  const statementData = {};
+  statementData.customer = invoice.customer;
+  statementData.performances = invoice.performances.map(enrichPerformance);
+  return renderPlainText(statementData, plays);
+}
+  function enrichPerformance(aPerformance) {
+    const result = Object.assign({}, aPerformance);
+    return result;
+  }
+
+```
+
+现在我们仅仅是复制了一个 performance object，但马上我们会添加数据，我偏爱把传入函数的变量当作不可变的。
+
+下来我们对 playFor 和 statement 使用 “**Move Function (196)**”：
+
+```javascript
+function enrichPerformance(aPerformance) {
+  const result = Object.assign({}, aPerformance);
+  result.play = playFor(aPerformance);
+  return result;
+}
+
+function playFor(aPerformance) {
+  return plays[aPerformance.playID];
+}
+```
+
+之后我把所有引用到 playFor 的地方用 data 替代。
+
+function renderPlainText：
+
+```javascript
+let result = `Statement for ${data.customer}\n`;
+ for (let perf of data.performances) {
+   result += `  ${perf.play.name}: ${usd(amountFor(perf))} (${perf.audience} seats)\n`;
+ }
+ result += `Amount owed is ${usd(totalAmount())}\n`;
+ result += `You earned ${totalVolumeCredits()} credits\n`;
+ return result;
+
+function volumeCreditsFor(aPerformance) {
+  let result = 0;
+  result += Math.max(aPerformance.audience - 30, 0);
+  if ("comedy" === aPerformance.play.type) result += Math.floor(aPerformance.audience / 5);
+  return result;
+}
+
+function amountFor(aPerformance) {
+  let result = 0;
+  switch (aPerformance.play.type) {
+  case "tragedy":
+    result = 40000;
+    if (aPerformance.audience > 30) {
+      result += 1000 * (aPerformance.audience - 30);
+    }
+    break;
+  case "comedy":
+    result = 30000;
+    if (aPerformance.audience > 20) {
+      result += 10000 + 500 * (aPerformance.audience - 20);
+    }
+    result += 300 * aPerformance.audience;
+    break;
+  default:
+      throw new Error(`unknown type: ${aPerformance.play.type}`);
+  }
+  return result;
+}
+```
+
+之后我用同样方式移动 amountFor。
+
+function statement：
+
+```javascript
+function enrichPerformance(aPerformance) {
+  const result = Object.assign({}, aPerformance);
+  result.play = playFor(result);
+  result.amount = amountFor(result);
+  return result;
+}
+
+function amountFor(aPerformance) {…}
+```
+
+function renderPlainText：
+
+```javascript
+ let result = `Statement for ${data.customer}\n`;
+ for (let perf of data.performances) {
+   result += `  ${perf.play.name}: ${usd(perf.amount)} (${perf.audience} seats)\n`;
+ }
+ result += `Amount owed is ${usd(totalAmount())}\n`;
+ result += `You earned ${totalVolumeCredits()} credits\n`;
+ return result;
+function totalAmount() {
+  let result = 0;
+  for (let perf of data.performances) {
+    result += perf.amount;
+  }
+  return result;
+}
+```
