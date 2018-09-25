@@ -793,3 +793,253 @@ function totalAmount() {
   return result;
 }
 ```
+
+之后是 volume credits 的计算。
+
+function statement…
+
+```javascript
+function enrichPerformance(aPerformance) {
+  const result = Object.assign({}, aPerformance);
+  result.play = playFor(result);
+  result.amount = amountFor(result);
+  result.volumeCredits = volumeCreditsFor(result);
+  return result;
+}
+
+  function volumeCreditsFor(aPerformance) {…}
+```
+
+function renderPlainText…
+
+```javascript
+function totalVolumeCredits() {
+  let result = 0;
+  for (let perf of data.performances) {
+    result += perf.volumeCredits;
+  }
+  return result;
+}
+```
+
+最后是两个 totals 的计算。
+
+function statement…
+
+```javascript
+const statementData = {};
+statementData.customer = invoice.customer;
+statementData.performances = invoice.performances.map(enrichPerformance);
+statementData.totalAmount = totalAmount(statementData);
+statementData.totalVolumeCredits = totalVolumeCredits(statementData);
+return renderPlainText(statementData, plays);
+
+
+   function totalAmount(data) {…}
+   function totalVolumeCredits(data) {…}
+```
+
+function renderPlainText…
+
+```javascript
+let result = `Statement for ${data.customer}\n`;
+for (let perf of data.performances) {
+  result += `  ${perf.play.name}: ${usd(perf.amount)} (${perf.audience} seats)\n`;
+}
+result += `Amount owed is ${usd(data.totalAmount)}\n`;
+result += `You earned ${data.totalVolumeCredits} credits\n`;
+return result;
+```
+
+尽管我可以在这几个 totals 函数里使用 statementData 变量，但我还是偏向传入更具体的变量。
+
+之后我可以使用 “**Replace Loop with Pipeline (230)**”
+
+function renderPlainText…
+
+```javascript
+function totalAmount(data) {
+  return data.performances
+    .reduce((total, p) => total + p.amount, 0);
+}
+function totalVolumeCredits(data) {
+  return data.performances
+    .reduce((total, p) => total + p.volumeCredits, 0);
+}
+```
+
+top level…
+
+```javascript
+function statement (invoice, plays) {
+  return renderPlainText(createStatementData(invoice, plays));
+}
+
+function createStatementData(invoice, plays) {
+  const statementData = {};
+  statementData.customer = invoice.customer;
+  statementData.performances = invoice.performances.map(enrichPerformance);
+  statementData.totalAmount = totalAmount(statementData);
+  statementData.totalVolumeCredits = totalVolumeCredits(statementData);
+  return statementData;
+```
+
+现在我可以把这些逻辑移到它独立的文件里了。
+
+statement.js…
+
+    import createStatementData from './createStatementData.js';
+
+
+createStatementData.js…
+
+```javascript
+export default function createStatementData(invoice, plays) {
+  const result = {};
+  result.customer = invoice.customer;
+  result.performances = invoice.performances.map(enrichPerformance);
+  result.totalAmount = totalAmount(result);
+  result.totalVolumeCredits = totalVolumeCredits(result);
+  return result;
+
+
+    function enrichPerformance(aPerformance) {…}
+    function playFor(aPerformance) {…}
+    function amountFor(aPerformance) {…}
+    function volumeCreditsFor(aPerformance) {…}
+    function totalAmount(data) {…}
+    function totalVolumeCredits(data) {…}
+```
+
+现在很容易实现 HTML 版本。
+
+statement.js…
+
+```javascript
+function htmlStatement (invoice, plays) {
+  return renderHtml(createStatementData(invoice, plays));
+}
+function renderHtml (data) {
+  let result = `<h1>Statement for ${data.customer}</h1>\n`;
+  result += "<table>\n";
+  result += "<tr><th>play</th><th>seats</th><th>cost</th></tr>";
+  for (let perf of data.performances) {
+    result += `  <tr><td>${perf.play.name}</td><td>${perf.audience}</td>`;
+    result += `<td>${usd(perf.amount)}</td></tr>\n`;
+  }
+  result += "</table>\n";
+  result += `<p>Amount owed is <em>${usd(data.totalAmount)}</em></p>\n`;
+  result += `<p>You earned <em>${data.totalVolumeCredits}</em> credits</p>\n`;
+  return result;
+}
+
+  function usd(aNumber) {…}
+```
+
+## STATUS: SEPARATED INTO TWO FILES (AND PHASES)
+
+回顾一下我们做了什么，现在我有两个文件，
+
+statement.js
+
+```javascript
+import createStatementData from './createStatementData.js';
+function statement (invoice, plays) {
+  return renderPlainText(createStatementData(invoice, plays));
+}
+function renderPlainText(data, plays) {
+  let result = `Statement for ${data.customer}\n`;
+  for (let perf of data.performances) {
+    result += `  ${perf.play.name}: ${usd(perf.amount)} (${perf.audience} seats)\n`;
+  }
+  result += `Amount owed is ${usd(data.totalAmount)}\n`;
+  result += `You earned ${data.totalVolumeCredits} credits\n`;
+  return result;
+}
+function htmlStatement (invoice, plays) {
+  return renderHtml(createStatementData(invoice, plays));
+}
+function renderHtml (data) {
+  let result = `<h1>Statement for ${data.customer}</h1>\n`;
+  result += "<table>\n";
+  result += "<tr><th>play</th><th>seats</th><th>cost</th></tr>";
+  for (let perf of data.performances) {
+    result += `  <tr><td>${perf.play.name}</td><td>${perf.audience}</td>`;
+    result += `<td>${usd(perf.amount)}</td></tr>\n`;
+  }
+  result += "</table>\n";
+  result += `<p>Amount owed is <em>${usd(data.totalAmount)}</em></p>\n`;
+  result += `<p>You earned <em>${data.totalVolumeCredits}</em> credits</p>\n`;
+  return result;
+}
+function usd(aNumber) {
+  return new Intl.NumberFormat("en-US",
+                               { style: "currency", currency: "USD",
+                                 minimumFractionDigits: 2 }).format(aNumber/100);
+}
+```
+
+createStatementData.js
+
+```javascript
+export default function createStatementData(invoice, plays) {
+  const result = {};
+  result.customer = invoice.customer;
+  result.performances = invoice.performances.map(enrichPerformance);
+  result.totalAmount = totalAmount(result);
+  result.totalVolumeCredits = totalVolumeCredits(result);
+  return result;
+
+  function enrichPerformance(aPerformance) {
+    const result = Object.assign({}, aPerformance);
+    result.play = playFor(result);
+    result.amount = amountFor(result);
+    result.volumeCredits = volumeCreditsFor(result);
+    return result;
+  }
+  function playFor(aPerformance) {
+    return plays[aPerformance.playID]
+  }
+  function amountFor(aPerformance) {
+    let result = 0;
+    switch (aPerformance.play.type) {
+    case "tragedy":
+      result = 40000;
+      if (aPerformance.audience > 30) {
+        result += 1000 * (aPerformance.audience - 30);
+      }
+      break;
+    case "comedy":
+      result = 30000;
+      if (aPerformance.audience > 20) {
+        result += 10000 + 500 * (aPerformance.audience - 20);
+      }
+      result += 300 * aPerformance.audience;
+      break;
+    default:
+        throw new Error(`unknown type: ${aPerformance.play.type}`);
+    }
+    return result;
+  }
+  function volumeCreditsFor(aPerformance) {
+    let result = 0;
+    result += Math.max(aPerformance.audience - 30, 0);
+    if ("comedy" === aPerformance.play.type) result += Math.floor(aPerformance.audience / 5);
+    return result;
+  }
+  function totalAmount(data) {
+    return data.performances
+      .reduce((total, p) => total + p.amount, 0);
+  }
+  function totalVolumeCredits(data) {
+    return data.performances
+      .reduce((total, p) => total + p.volumeCredits, 0);
+  }
+```
+
+重构之后我们的代码行数增加了，从 70 行 到 44 行(不包括 htmlStatement)。多出来的代码把逻辑分割成了可以辨识的很多小部分，并且把计算和布局(layout)分离了。这样的模块化可以让我们很容易理解每个小部分在做什么，简明扼要是才智智慧的灵魂，但是对不断迭代的软件而言，能够阐明自己(clarity)才是灵魂。
+
+> When programming, follow the camping rule: Always leave the code base healthier than when you found it.
+
+
+My rule is a variation on the camping rule: Always leave the code base healthier than when you found it. It will never be perfect, but it should be better.
