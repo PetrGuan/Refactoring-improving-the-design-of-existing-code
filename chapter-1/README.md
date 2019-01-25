@@ -608,7 +608,6 @@ function renderPlainText(invoice, plays) {
   result += `Amount owed is ${usd(totalAmount())}\n`;
   result += `You earned ${totalVolumeCredits()} credits\n`;
   return result;
-}
 
   function totalAmount() {…}
   function totalVolumeCredits() {…}
@@ -616,6 +615,7 @@ function renderPlainText(invoice, plays) {
   function volumeCreditsFor(aPerformance) {…}
   function playFor(aPerformance) {…}
   function amountFor(aPerformance) {…}
+}
 ```
 
 和以往一样进行 compile-test-commit，然后创建一个对象作为中间数据结构，把这个对象作为变量传给 “**renderPlainText**”：
@@ -634,7 +634,6 @@ function renderPlainText(data, invoice, plays) {
   result += `Amount owed is ${usd(totalAmount())}\n`;
   result += `You earned ${totalVolumeCredits()} credits\n`;
   return result;
-}
 
   function totalAmount() {…}
   function totalVolumeCredits() {…}
@@ -642,6 +641,7 @@ function renderPlainText(data, invoice, plays) {
   function volumeCreditsFor(aPerformance) {…}
   function playFor(aPerformance) {…}
   function amountFor(aPerformance) {…}
+}
 ```
 
 之后我们检查 “**renderPlainText**” 用到的其他变量，最后想要达到的目的是 renderPlainText 只负责对传入的数据进行渲染。第一步是把 customer 加入中间变量：
