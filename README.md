@@ -6,4 +6,4 @@
 作者 [@Martin Fowler][1]
 
 
-[3]: https://martinfowler.com/
+[1]: https://martinfowler.com/
