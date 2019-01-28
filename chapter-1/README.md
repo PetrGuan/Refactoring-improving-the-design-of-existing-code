@@ -1107,7 +1107,7 @@ export default function createStatementData(invoice, plays) {
   }
 ```
 
-### Creating a Performance Calculator
+## Creating a Performance Calculator
 
 我们需要一个 host 类来调用计算，这个类就叫做 performance calculator 吧。
 
@@ -1148,7 +1148,7 @@ function enrichPerformance(aPerformance) {
 }
 ```
 
-### Moving Functions into the Calculator
+## Moving Functions into the Calculator
 
 第一步非常简单就是把逻辑完整地复制到 calculator 类里面：
 
@@ -1235,7 +1235,7 @@ function enrichPerformance(aPerformance) {
 }
 ```
 
-### Making the Performance Calculator Polymorphic
+## Making the Performance Calculator Polymorphic
 
 现在我们基本的计算逻辑都已经放在类里面了，接下来我们可以使用 "**Replace Type Code with Subclasses (362)**"。又由于 JS 的构造函数不能返回子类实例，我们使用 "**Replace Constructor with Factory Function (334)**":
 
@@ -1316,3 +1316,104 @@ class ComedyCalculator extends PerformanceCalculator {
   }
 }
 ```
+
+## STATUS: CREATING THE DATA WITH THE POLYMORPHIC CALCULATOR
+
+再次回顾我们的多态：
+
+```javascript
+export default function createStatementData(invoice, plays) {
+  const result = {};
+  result.customer = invoice.customer;
+  result.performances = invoice.performances.map(enrichPerformance);
+  result.totalAmount = totalAmount(result);
+  result.totalVolumeCredits = totalVolumeCredits(result);
+  return result;
+
+  function enrichPerformance(aPerformance) {
+    const calculator = createPerformanceCalculator(aPerformance, playFor(aPerformance));
+    const result = Object.assign({}, aPerformance);
+    result.play = calculator.play;
+    result.amount = calculator.amount;
+    result.volumeCredits = calculator.volumeCredits;
+    return result;
+  }
+  function playFor(aPerformance) {
+    return plays[aPerformance.playID]
+  }
+  function totalAmount(data) {
+    return data.performances
+      .reduce((total, p) => total + p.amount, 0);
+  }
+  function totalVolumeCredits(data) {
+    return data.performances
+      .reduce((total, p) => total + p.volumeCredits, 0);
+  }
+}
+
+function createPerformanceCalculator(aPerformance, aPlay) {
+    switch(aPlay.type) {
+    case "tragedy": return new TragedyCalculator(aPerformance, aPlay);
+    case "comedy" : return new ComedyCalculator(aPerformance, aPlay);
+    default:
+        throw new Error(`unknown type: ${aPlay.type}`);
+    }
+}
+class PerformanceCalculator {
+  constructor(aPerformance, aPlay) {
+    this.performance = aPerformance;
+    this.play = aPlay;
+  }
+  get amount() {
+    throw new Error('subclass responsibility');}
+  get volumeCredits() {
+    return Math.max(this.performance.audience - 30, 0);
+  }
+}
+class TragedyCalculator extends PerformanceCalculator {
+  get amount() {
+    let result = 40000;
+    if (this.performance.audience > 30) {
+      result += 1000 * (this.performance.audience - 30);
+    }
+    return result;
+  }
+}
+class ComedyCalculator extends PerformanceCalculator {
+  get amount() {
+    let result = 30000;
+    if (this.performance.audience > 20) {
+      result += 10000 + 500 * (this.performance.audience - 20);
+    }
+    result += 300 * this.performance.audience;
+    return result;
+  }
+  get volumeCredits() {
+    return super.volumeCredits + Math.floor(this.performance.audience / 5);
+  }
+}
+```
+
+我们又增加了代码行数，但是我们得到的是更好的结构，这也是一种 trade-off。
+
+## FINAL THOUGHTS
+
+以上的例子很简单，但希望通过这个例子你能对重构有了一种大概的了解。
+
+以上的重构可以分为三个阶段：
+
+> * 把原来的函数分解成一系列子函数
+> * 把计算的逻辑和打印的逻辑抽离
+> * 最后使用多态来实现具体的计算逻辑
+
+早期的重构都是由更好的来理解代码所驱动的，比较常见的步骤：
+
+> * Read the code
+> * Gain some insight
+> * Use refactoring to move that insight from your head back into the code
+
+整洁优雅的代码是容易理解的，容易被改变的。当你需要作出修改的时候，好的代码会让你轻易的就找到去哪里改并且不会引入错误。
+
+> The true test of good code is how easy it is to change it.
+
+最后，在每次微小的改动之后都进行测试，保证你在朝着正确的方向上前进！
