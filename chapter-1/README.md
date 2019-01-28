@@ -1037,9 +1037,282 @@ export default function createStatementData(invoice, plays) {
   }
 ```
 
-重构之后我们的代码行数增加了，从 70 行 到 44 行(不包括 htmlStatement)。多出来的代码把逻辑分割成了可以辨识的很多小部分，并且把计算和布局(layout)分离了。这样的模块化可以让我们很容易理解每个小部分在做什么，简明扼要是才智智慧的灵魂，但是对不断迭代的软件而言，能够阐明自己(clarity)才是灵魂。
+重构之后我们的代码行数增加了，从 44 行 到 70 行(不包括 htmlStatement)。多出来的代码把逻辑分割成了可以辨识的很多小部分，并且把计算和布局(layout)分离了。这样的模块化可以让我们很容易理解每个小部分在做什么，简明扼要是才智智慧的灵魂，但是对不断迭代的软件而言，能够阐明自己(clarity)才是灵魂。
 
 > When programming, follow the camping rule: Always leave the code base healthier than when you found it.
 
 
 My rule is a variation on the camping rule: Always leave the code base healthier than when you found it. It will never be perfect, but it should be better.
+
+
+## REORGANIZING THE CALCULATIONS BY TYPE
+
+无须多言，这里我们主要用到的技巧叫 “**Replace Conditional with Polymorphism (272)**”
+
+createStatementData.js…
+
+```javascript
+export default function createStatementData(invoice, plays) {
+  const result = {};
+  result.customer = invoice.customer;
+  result.performances = invoice.performances.map(enrichPerformance);
+  result.totalAmount = totalAmount(result);
+  result.totalVolumeCredits = totalVolumeCredits(result);
+  return result;
+
+  function enrichPerformance(aPerformance) {
+    const result = Object.assign({}, aPerformance);
+    result.play = playFor(result);
+    result.amount = amountFor(result);
+    result.volumeCredits = volumeCreditsFor(result);
+    return result;
+  }
+  function playFor(aPerformance) {
+    return plays[aPerformance.playID]
+  }
+  function amountFor(aPerformance) {
+    let result = 0;
+    switch (aPerformance.play.type) {
+    case "tragedy":
+      result = 40000;
+      if (aPerformance.audience > 30) {
+        result += 1000 * (aPerformance.audience - 30);
+      }
+      break;
+    case "comedy":
+      result = 30000;
+      if (aPerformance.audience > 20) {
+        result += 10000 + 500 * (aPerformance.audience - 20);
+      }
+      result += 300 * aPerformance.audience;
+      break;
+    default:
+        throw new Error(`unknown type: ${aPerformance.play.type}`);
+    }
+    return result;
+  }
+  function volumeCreditsFor(aPerformance) {
+    let result = 0;
+    result += Math.max(aPerformance.audience - 30, 0);
+    if ("comedy" === aPerformance.play.type) result += Math.floor(aPerformance.audience / 5);
+    return result;
+  }
+  function totalAmount(data) {
+    return data.performances
+      .reduce((total, p) => total + p.amount, 0);
+  }
+  function totalVolumeCredits(data) {
+    return data.performances
+      .reduce((total, p) => total + p.volumeCredits, 0);
+  }
+```
+
+### Creating a Performance Calculator
+
+我们需要一个 host 类来调用计算，这个类就叫做 performance calculator 吧。
+
+```javascript
+class PerformanceCalculator {
+  constructor(aPerformance) {
+    this.performance = aPerformance;
+  }
+}
+
+function enrichPerformance(aPerformance) {
+  const calculator = new PerformanceCalculator(aPerformance);
+  const result = Object.assign({}, aPerformance);
+  result.play = playFor(result);
+  result.amount = amountFor(result);
+  result.volumeCredits = volumeCreditsFor(result);
+  return result;
+}
+```
+
+先从 play 开始，
+
+```javascript
+class PerformanceCalculator {
+  constructor(aPerformance, aPlay) {
+    this.performance = aPerformance;
+    this.play = aPlay;
+  }
+}
+
+function enrichPerformance(aPerformance) {
+  const calculator = new PerformanceCalculator(aPerformance, playFor(aPerformance));
+  const result = Object.assign({}, aPerformance);
+  result.play = calculator.play;
+  result.amount = amountFor(result);
+  result.volumeCredits = volumeCreditsFor(result);
+  return result;
+}
+```
+
+### Moving Functions into the Calculator
+
+第一步非常简单就是把逻辑完整地复制到 calculator 类里面：
+
+```javascript
+class PerformanceCalculator {
+  constructor(aPerformance, aPlay) {
+    this.performance = aPerformance;
+    this.play = aPlay;
+  }
+
+  get amount() {
+  let result = 0;
+  switch (this.play.type) {
+    case "tragedy":
+      result = 40000;
+      if (this.performance.audience > 30) {
+        result += 1000 * (this.performance.audience - 30);
+      }
+      break;
+    case "comedy":
+      result = 30000;
+      if (this.performance.audience > 20) {
+        result += 10000 + 500 * (this.performance.audience - 20);
+      }
+      result += 300 * this.performance.audience;
+      break;
+    default:
+      throw new Error(`unknown type: ${this.play.type}`);
+  }
+  return result;
+}
+}
+```
+
+接下来把实际调用的函数变为一个代理函数，让我们的类来实际调用：
+
+```javascript
+function amountFor(aPerformance) {
+  return new PerformanceCalculator(aPerformance, playFor(aPerformance)).amount;
+}
+```
+
+现在我们的 enrichPerformance 函数是这样的：
+
+```javascript
+function enrichPerformance(aPerformance) {
+  const calculator = new PerformanceCalculator(aPerformance, playFor(aPerformance));
+  const result = Object.assign({}, aPerformance);
+  result.play = calculator.play;
+  result.amount = calculator.amount;
+  result.volumeCredits = volumeCreditsFor(result);
+  return result;
+}
+```
+
+同样对 volumeCredits 进行重构：
+
+```javascript
+class PerformanceCalculator {
+  constructor(aPerformance, aPlay) {
+    this.performance = aPerformance;
+    this.play = aPlay;
+  }
+
+  get amount() {
+    ...
+  }
+
+  get volumeCredits() {
+  let result = 0;
+  result += Math.max(this.performance.audience - 30, 0);
+  if ("comedy" === this.play.type) result += Math.floor(this.performance.audience / 5);
+  return result;
+  }
+}
+
+function enrichPerformance(aPerformance) {
+  const calculator = new PerformanceCalculator(aPerformance, playFor(aPerformance));
+  const result = Object.assign({}, aPerformance);
+  result.play = calculator.play;
+  result.amount = calculator.amount;
+  result.volumeCredits = calculator.volumeCredits;
+  return result;
+}
+```
+
+### Making the Performance Calculator Polymorphic
+
+现在我们基本的计算逻辑都已经放在类里面了，接下来我们可以使用 "**Replace Type Code with Subclasses (362)**"。又由于 JS 的构造函数不能返回子类实例，我们使用 "**Replace Constructor with Factory Function (334)**":
+
+```javascript
+class TragedyCalculator extends PerformanceCalculator {
+  // Do own logic...
+}
+class ComedyCalculator extends PerformanceCalculator {
+  // Do own logic...
+}
+
+function createPerformanceCalculator(aPerformance, aPlay) {
+    switch(aPlay.type) {
+    case "tragedy": return new TragedyCalculator(aPerformance, aPlay);
+    case "comedy" : return new ComedyCalculator(aPerformance, aPlay);
+    default:
+        throw new Error(`unknown type: ${aPlay.type}`);
+    }
+}
+
+function enrichPerformance(aPerformance) {
+  const calculator = createPerformanceCalculator(aPerformance, playFor(aPerformance));
+  const result = Object.assign({}, aPerformance);
+  result.play = calculator.play;
+  result.amount = calculator.amount;
+  result.volumeCredits = calculator.volumeCredits;
+  return result;
+}
+```
+
+接下来我们就可以把具体计算逻辑里面的条件语句给抽离到子类的计算逻辑之中：
+
+```javascript
+class TragedyCalculator extends PerformanceCalculator {
+  get amount() {
+  let result = 40000;
+  if (this.performance.audience > 30) {
+    result += 1000 * (this.performance.audience - 30);
+  }
+  return result;
+  }
+}
+
+class ComedyCalculator extends PerformanceCalculator {
+  get amount() {
+  let result = 30000;
+  if (this.performance.audience > 20) {
+    result += 10000 + 500 * (this.performance.audience - 20);
+  }
+  result += 300 * this.performance.audience;
+  return result;
+  }
+}
+```
+
+现在我可以做点事在父类 amount 里面了，那就是它应该永远不被调用！
+
+```javascript
+class PerformanceCalculator {
+  get amount() {
+    throw new Error('subclass responsibility');
+  }
+}
+```
+
+更好的理解多态的思想，把普遍的逻辑放在父类里面，变化(variations)放在子类里并且覆写父类的方法，这样的实践是比较好的。
+
+```javascript
+class PerformanceCalculator {
+  get volumeCredits() {
+  return Math.max(this.performance.audience - 30, 0);
+  }
+}
+
+class ComedyCalculator extends PerformanceCalculator {
+  get volumeCredits() {
+  return super.volumeCredits + Math.floor(this.performance.audience / 5);
+  }
+}
+```
