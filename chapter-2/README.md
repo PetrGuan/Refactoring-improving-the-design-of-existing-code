@@ -61,11 +61,11 @@ Kent Beck 对此有一个 two hats 的比喻。当你使用重构来开发软件
 
 下面的图是一个很好的例子：
 
-![image](https://github.com/byelaney/Refactoring-improving-the-design-of-existing-code/tree/master/chapter-2/img/p0049_01.jpg)
+![image](https://github.com/byelaney/Refactoring-improving-the-design-of-existing-code/blob/master/chapter-2/img/p0049_01.jpg)
 
 当然也有的开发者有不一样的故事。他们很快就能添加新功能因为之前的代码写的非常好：
 
-![image](https://github.com/byelaney/Refactoring-improving-the-design-of-existing-code/tree/master/chapter-2/img/p0049_02.jpg)
+![image](https://github.com/byelaney/Refactoring-improving-the-design-of-existing-code/blob/master/chapter-2/img/p0049_02.jpg)
 
 这两者的区别就在于软件内部的质量。质量高的代码允许我很容易地就知道该怎么加代码，以及加在哪里来实现我要的新功能。好的模块化让我只要理解全部代码的一部分就能添加新功能。如果代码非常清晰，那么同时我引入 bug 的几率也会大大降低，就算我引入了 bug，debug 也会变得没那么困难。慢慢的，你的 code base 就会变成类似一个平台，允许各种开发者在上面添加功能。
 
