@@ -156,3 +156,22 @@ Kent Beck 对此有一个 two hats 的比喻。当你使用重构来开发软件
 
 
 ## 重构会带来的问题
+
+每当有人鼓吹一项技术，工具，或者一种架构的时候，我总是会去寻找其中的问题。生活中很少有完全是蓝天白云的美丽世界，你必须理解其中的 tradeoff 从而有效地去使用它们。我确实认为重构是一种非常有价值的技术，但它也存在黑暗面，下来我们来讨论一下重构的问题和如何应对。
+
+### 减慢新功能的加入
+
+尽管我之前的章节说了重构会加速，但有的时候重构也确实减慢了新功能的加入，尤其是对做很多重构的人来说。
+
+> The whole purpose of refactoring is to make us program faster, producing more value with less effort.
+
+我们经常会面对这样的 tradeoff。你会陷入一种境地，一大段代码需要被重构，但你要加的功能非常简单非常小，所以你更偏向直接添加并且不去管那一大段代码。这需要你作为职业开发者的判断，能帮助你的可能只有经验和天赋了。
+
+
+I’m very conscious that preparatory refactoring often makes a change easier, so I certainly will do it if I see that it makes my new feature easier to implement. I’m also more inclined to refactor if this is a problem I’ve seen before—sometimes it takes me a couple of times seeing some particular ugliness before I decide to refactor it away. Conversely, I’m more likely to not refactor if it’s part of the code I rarely touch and the cost of the inconvenience isn’t something I feel very often. Sometimes, I delay a refactoring because I’m not sure what improvement to do, although at other times I’ll try something as an experiment to see if it makes things better.
+
+Still, the evidence I hear from my colleagues in the industry is that too little refactoring is far more prevalent than too much. In other words, most people should try to refactor more often. You may have trouble telling the difference in productivity between a healthy and a sickly code base because you haven’t had enough experience of a healthy code base—of the power that comes from easily combining existing parts into new configurations to quickly enable complicated new features.
+
+Although it’s often managers that are criticized for the counter-productive habit of squelching refactoring in the name of speed, I’ve often seen developers do it to themselves. Sometimes, they think they shouldn’t be refactoring even though their leadership is actually in favor. If you’re a tech lead in a team, it’s important to show team members that you value improving the health of a code base. That judgment I mentioned earlier on whether to refactor or not is something that takes years of experience to build up. Those with less experience in refactoring need lots of mentoring to accelerate them through the process.
+
+But I think the most dangerous way that people get trapped is when they try to justify refactoring in terms of “clean code,” “good engineering practice,” or similar moral reasons. The point of refactoring isn’t to show how sparkly a code base is—it is purely economic. We refactor because it makes us faster—faster to add features, faster to fix bugs. It’s important to keep that in front of your mind and in front of communication with others. The economic benefits of refactoring should always be the driving factor, and the more that is understood by developers, managers, and customers, the more of the “good design” curve we’ll see.
